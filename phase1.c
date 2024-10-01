@@ -47,8 +47,9 @@ void blockMe(void)
 {
     unsigned int oldPsr = disableInterrupts();
     enforceKernelMode();
-
+    // mark currProc as blocked? use status field?
     restoreInterrupts(oldPsr);
+    dispatcher();
 }
 
 int  unblockProc(int pid)
