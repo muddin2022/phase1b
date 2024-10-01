@@ -42,7 +42,10 @@ void sporkTrampoline(void);
 void enforceKernelMode();
 void addChild(struct PCB *parent, struct PCB *child);
 
-/* --- Functions from spec --- */
+/* --- Functions from JUST part b --- */
+
+
+/* --- Functions from part a AND part b --- */
 void phase1_init(void)
 {
     unsigned int oldPsr = disableInterrupts();
@@ -85,7 +88,7 @@ int init(void *)
     USLOSS_Console("Phase 1A TEMPORARY HACK: init() manually switching to testcase_main() after using spork() to create it.\n");
     int pid = spork("testcase_main", &testcaseMainWrapper, NULL, USLOSS_MIN_STACK, 3);
     currProc->newestChild = &procTable[pid % MAXPROC];
-    TEMP_switchTo(pid);
+    dispatcher();
 
     // call join to clean up procTable
     int deadPid = 1;
@@ -154,26 +157,6 @@ int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priorit
     return pid;
 }
 
-void TEMP_switchTo(int pid)
-{
-    unsigned int oldPsr = disableInterrupts();
-    gOldPsr = oldPsr;
-
-    struct PCB *oldProc = currProc;
-    struct PCB *switchTo = &procTable[pid % MAXPROC];
-    currProc = switchTo;
-
-    if (currProc->pid == 1)
-    {
-        USLOSS_ContextSwitch(NULL, &switchTo->context);
-    }
-    else
-    {
-        USLOSS_ContextSwitch(&oldProc->context, &switchTo->context);
-    }
-    restoreInterrupts(oldPsr);
-}
-
 int join(int *status)
 {
     unsigned int oldPsr = disableInterrupts();
@@ -233,7 +216,7 @@ void quit_phase_1a(int status, int switchToPid)
     currProc->status = status;
     currProc->isDead = true;
 
-    TEMP_switchTo(currProc->parent->pid);
+    dispatcher();
 
     while (true)
         ;
