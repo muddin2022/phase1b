@@ -47,8 +47,24 @@ void blockMe(void)
 {
     unsigned int oldPsr = disableInterrupts();
     enforceKernelMode();
-    
+
     restoreInterrupts(oldPsr);
+}
+
+int  unblockProc(int pid)
+{
+}
+
+void dispatcher(void)
+{
+}
+
+void quit(int status)
+{
+}
+
+void zap(int pid)
+{
 }
 
 /* --- Functions from part a AND part b --- */
