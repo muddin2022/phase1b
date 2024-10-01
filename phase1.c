@@ -43,7 +43,13 @@ void enforceKernelMode();
 void addChild(struct PCB *parent, struct PCB *child);
 
 /* --- Functions from JUST part b --- */
-
+void blockMe(void) 
+{
+    unsigned int oldPsr = disableInterrupts();
+    enforceKernelMode();
+    
+    restoreInterrupts(oldPsr);
+}
 
 /* --- Functions from part a AND part b --- */
 void phase1_init(void)
