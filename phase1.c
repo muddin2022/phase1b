@@ -19,6 +19,9 @@ struct PCB
     void *arg;
     int retVal;
 
+    struct PCB *nextRunQueue;
+    struct PCB *prevRunQueue;
+
     struct PCB *parent;
     struct PCB *newestChild;
     struct PCB *prevSibling;
