@@ -70,6 +70,52 @@ int currentTime(void)
 {
 }
 
+/* --------------------- phase 1a functions updated in phase 1b --------------------- */
+
+int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priority)
+{
+    enforceKernelMode(1);
+
+    // disable interrupts for new process creation
+    unsigned int oldPsr = disableInterrupts();
+
+    // check if procTable is full
+    if (filledSlots == 50)
+    {
+        return -1;
+    }
+    getNextPid();
+
+    int pid = nextPid;
+    int slot = pid % MAXPROC;
+
+    if (procTable[slot].pid != 0 || strlen(name) > MAXNAME || priority < 1 || priority > 5)
+        return -1;
+    if (stacksize < USLOSS_MIN_STACK)
+        return -2;
+
+    struct PCB *newProc = &procTable[slot];
+
+    strcpy(newProc->name, name);
+    newProc->pid = pid;
+    newProc->priority = priority;
+    newProc->stack = malloc(stacksize);
+    newProc->isDead = false;
+    newProc->funcPtr = func;
+    newProc->arg = arg;
+
+    addChild(currProc, newProc);
+
+    USLOSS_ContextInit(&newProc->context, newProc->stack, stacksize, NULL, &sporkTrampoline);
+
+    filledSlots++;
+    restoreInterrupts(oldPsr);
+
+    dispatcher();
+
+    return pid;
+}
+
 /* --------------------- phase 1a functions --------------------- */
 void phase1_init(void)
 {
@@ -139,48 +185,6 @@ int init(void *)
     restoreInterrupts(oldPsr);
 
     return 0;
-}
-
-int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priority)
-{
-    enforceKernelMode(1);
-
-    // disable interrupts for new process creation
-    unsigned int oldPsr = disableInterrupts();
-
-    // check if procTable is full
-    if (filledSlots == 50)
-    {
-        return -1;
-    }
-    getNextPid();
-
-    int pid = nextPid;
-    int slot = pid % MAXPROC;
-
-    if (procTable[slot].pid != 0 || strlen(name) > MAXNAME || priority < 1 || priority > 5)
-        return -1;
-    if (stacksize < USLOSS_MIN_STACK)
-        return -2;
-
-    struct PCB *newProc = &procTable[slot];
-
-    strcpy(newProc->name, name);
-    newProc->pid = pid;
-    newProc->priority = priority;
-    newProc->stack = malloc(stacksize);
-    newProc->isDead = false;
-    newProc->funcPtr = func;
-    newProc->arg = arg;
-
-    addChild(currProc, newProc);
-
-    USLOSS_ContextInit(&newProc->context, newProc->stack, stacksize, NULL, &sporkTrampoline);
-
-    filledSlots++;
-    restoreInterrupts(oldPsr);
-
-    return pid;
 }
 
 void TEMP_switchTo(int pid)
