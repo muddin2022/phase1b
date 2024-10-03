@@ -61,6 +61,7 @@ void sporkTrampoline(void);
 void enforceKernelMode();
 void addChild(struct PCB *parent, struct PCB *child);
 void addToQueue(struct PCB *proc);
+void removeFromQueue();
 
 /* --------------------- phase 1b functions --------------------- */
 
@@ -74,6 +75,11 @@ void zap(int pid)
 
 void blockMe(void)
 {
+    unsigned int oldPsr = disableInterrupts();
+    // remove from run queue
+    removeFromQueue();
+
+    restoreInterrupts(oldPsr);
 }
 
 int unblockProc(int pid)
@@ -358,6 +364,32 @@ void dumpProcesses(void)
 
 /* ------------ Helper functions, not defined in spec ------------ */
 /*
+ * Removes the current process from its run queue, and updates the nextRunQueue and prevRunQueue fields.
+ */
+void removeFromQueue()
+{
+    int priority = currProc->priority;
+    struct PCB *newHead = currProc->nextRunQueue;
+
+    if (priority == 1)
+        p1Head = newHead;
+    else if (priority == 2)
+        p2Head = newHead;
+    else if (priority == 3)
+        p3Head = newHead;
+    else if (priority == 4)
+        p4Head = newHead;
+    else
+        p5Head = newHead;
+
+    if (newHead != NULL)
+    {
+        newHead->prevRunQueue = NULL;
+        currProc->nextRunQueue = NULL;
+    }
+}
+
+/*
  * Adds the proc to the appropriate run queue, and sets the 
  * nextRunQueue and prevRunQueue fields.
  */
@@ -369,29 +401,41 @@ void addToQueue(struct PCB *proc)
     {
         oldTail = p1Tail;
         p1Tail = proc;
+        if (oldTail == NULL)
+            p1Head = proc;
     } 
     else if (priority == 2)
     {
         oldTail = p2Tail;
         p2Tail = proc;
+        if (oldTail == NULL)
+            p2Head = proc;
     } 
     else if (priority == 3)
     {
         oldTail = p3Tail;
         p3Tail = proc;
+        if (oldTail == NULL)
+            p3Head = proc;
     }
     else if (priority == 4)
     {
         oldTail = p4Tail;
         p4Tail = proc;
+        if (oldTail == NULL)
+            p4Head = proc;
     }
     else
     {
         oldTail = p5Tail;
         p5Tail = proc;
+        if (oldTail == NULL)
+            p5Head = proc;
+        
     }
 
-    oldTail->nextRunQueue = proc;
+    if (oldTail != NULL)
+        oldTail->nextRunQueue = proc;
     proc->prevRunQueue = oldTail;
     proc->nextRunQueue = NULL;
 }
