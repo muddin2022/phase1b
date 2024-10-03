@@ -25,7 +25,6 @@ struct PCB
     struct PCB *nextSibling;
 };
 
-/* --- Global variables --- */
 /* ----------------------- Global variables ---------------------- */
 struct PCB *currProc;
 struct PCB procTable[MAXPROC];
@@ -35,7 +34,6 @@ int lastPid = -1;
 int filledSlots = 0;
 unsigned int gOldPsr;
 
-/* --- Function prototypes --- */
 /* --------------------- Function prototypes --------------------- */
 void getNextPid(void);
 unsigned int disableInterrupts(void);
@@ -46,6 +44,33 @@ void sporkTrampoline(void);
 void enforceKernelMode();
 void addChild(struct PCB *parent, struct PCB *child);
 
+/* --------------------- phase 1b functions --------------------- */
+
+void quit(int status)
+{
+}
+
+void zap(int pid)
+{
+}
+
+void blockMe(void)
+{
+}
+
+int unblockProc(int pid)
+{
+}
+
+void dispatcher(void)
+{
+}
+
+int currentTime(void)
+{
+}
+
+/* --------------------- phase 1a functions --------------------- */
 void phase1_init(void)
 {
     unsigned int oldPsr = disableInterrupts();
