@@ -60,6 +60,7 @@ int testcaseMainWrapper(void *args);
 void sporkTrampoline(void);
 void enforceKernelMode();
 void addChild(struct PCB *parent, struct PCB *child);
+void addToQueue(struct PCB *proc);
 
 /* --------------------- phase 1b functions --------------------- */
 
@@ -154,6 +155,9 @@ int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priorit
     addChild(currProc, newProc);
 
     USLOSS_ContextInit(&newProc->context, newProc->stack, stacksize, NULL, &sporkTrampoline);
+
+    // add to run queue, set run queue pointers
+    addToQueue(newProc);
 
     filledSlots++;
     restoreInterrupts(oldPsr);
@@ -353,6 +357,45 @@ void dumpProcesses(void)
 }
 
 /* ------------ Helper functions, not defined in spec ------------ */
+/*
+ * Adds the proc to the appropriate run queue, and sets the 
+ * nextRunQueue and prevRunQueue fields.
+ */
+void addToQueue(struct PCB *proc) 
+{
+    int priority = proc->priority;
+    struct PCB *oldTail;
+    if (priority == 1) 
+    {
+        oldTail = p1Tail;
+        p1Tail = proc;
+    } 
+    else if (priority == 2)
+    {
+        oldTail = p2Tail;
+        p2Tail = proc;
+    } 
+    else if (priority == 3)
+    {
+        oldTail = p3Tail;
+        p3Tail = proc;
+    }
+    else if (priority == 4)
+    {
+        oldTail = p4Tail;
+        p4Tail = proc;
+    }
+    else
+    {
+        oldTail = p5Tail;
+        p5Tail = proc;
+    }
+
+    oldTail->nextRunQueue = proc;
+    proc->prevRunQueue = oldTail;
+    proc->nextRunQueue = NULL;
+}
+
 /*
  * Checks the nextPid to see if it maps to a position in the
  * procTable that is alredy filled. It keeps checking for a blank
