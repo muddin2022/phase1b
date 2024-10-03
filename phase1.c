@@ -37,6 +37,20 @@ int lastPid = -1;
 int filledSlots = 0;
 unsigned int gOldPsr;
 
+// run queues, p1Head means priority 1 head pointer
+struct PCB *p1Head;
+struct PCB *p1Tail;
+struct PCB *p2Head;
+struct PCB *p2Tail;
+struct PCB *p3Head;
+struct PCB *p3Tail;
+struct PCB *p4Head;
+struct PCB *p4Tail;
+struct PCB *p5Head;
+struct PCB *p5Tail;
+struct PCB *p6Head;
+struct PCB *p6Tail;
+
 /* --------------------- Function prototypes --------------------- */
 void getNextPid(void);
 unsigned int disableInterrupts(void);
@@ -69,11 +83,41 @@ void dispatcher(void)
 {
 }
 
-int currentTime(void)
+/*int currentTime(void)
 {
-}
+}*/
 
 /* --------------------- phase 1a functions updated in phase 1b --------------------- */
+void phase1_init(void)
+{
+    unsigned int oldPsr = disableInterrupts();
+
+    memset(procTable, 0, sizeof(procTable));
+
+    getNextPid();
+    int index = nextPid % MAXPROC;
+    struct PCB *initProc = &procTable[index];
+
+    initProc->pid = nextPid;
+    strcpy(initProc->name, "init");
+    initProc->priority = 6;
+    initProc->stackSize = USLOSS_MIN_STACK;
+    initProc->funcPtr = &init;
+    initProc->stack = initStack;
+    initProc->isDead = false;
+    initProc->arg = NULL;
+    initProc->nextRunQueue = NULL;
+    initProc->prevRunQueue = NULL;
+
+    USLOSS_ContextInit(&(procTable[index].context), initProc->stack, USLOSS_MIN_STACK, NULL, &sporkTrampoline);
+    filledSlots++;
+
+    p6Head = initProc;
+    p6Tail = initProc;
+
+    currProc = initProc;
+    restoreInterrupts(oldPsr);
+}
 
 int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priority)
 {
@@ -120,33 +164,6 @@ int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priorit
 }
 
 /* --------------------- phase 1a functions --------------------- */
-void phase1_init(void)
-{
-    unsigned int oldPsr = disableInterrupts();
-
-    memset(procTable, 0, sizeof(procTable));
-
-    getNextPid();
-    int index = nextPid % MAXPROC;
-    struct PCB *initProc = &procTable[index];
-
-    initProc->pid = nextPid;
-    strcpy(initProc->name, "init");
-    initProc->priority = 6;
-    initProc->stackSize = USLOSS_MIN_STACK;
-    initProc->funcPtr = &init;
-    initProc->stack = initStack;
-    initProc->isDead = false;
-
-    initProc->arg = NULL;
-
-    USLOSS_ContextInit(&(procTable[index].context), initProc->stack, USLOSS_MIN_STACK, NULL, &sporkTrampoline);
-    filledSlots++;
-
-    currProc = initProc;
-    restoreInterrupts(oldPsr);
-}
-
 int init(void *)
 {
     unsigned int oldPsr = disableInterrupts();
