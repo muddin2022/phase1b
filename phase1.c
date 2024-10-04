@@ -191,6 +191,68 @@ int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priorit
     return pid;
 }
 
+int join(int *status)
+{
+    unsigned int oldPsr = disableInterrupts();
+
+    if (status == NULL)
+        return -3;
+    
+
+    // iterate through children, looking for a dead one
+    struct PCB *next = currProc->newestChild;
+    if (next == NULL)
+        return -2;
+    
+
+    int index, pid;
+    while (next != NULL)
+    {
+        if (next->isDead)
+        {
+            *status = next->status;
+            pid = next->pid;
+            index = pid % MAXPROC;
+            // next is an only child
+            if ((next == currProc->newestChild) && (next->nextSibling == NULL))
+                currProc->newestChild = NULL;
+            
+            // next has next siblings
+            else if (next->nextSibling != NULL)
+            {
+                // next is newestChild
+                if (next == currProc->newestChild)
+                {
+                    currProc->newestChild = next->nextSibling;
+                    (next->nextSibling)->prevSibling = NULL;
+                }
+                // next is a middle child
+                else
+                {
+                    (next->prevSibling)->nextSibling = next->nextSibling;
+                    (next->nextSibling)->prevSibling = next->prevSibling;
+                }
+            }
+            // next does not have next siblings
+            else
+                (next->prevSibling)->nextSibling = NULL;
+            
+
+            free(next->stack);
+            memset(&procTable[index], 0, sizeof(struct PCB));
+            filledSlots--;
+            return pid;
+        }
+        else
+            next = next->nextSibling; 
+    }
+    // after while loop, means there are no dead children, so block
+    currProc->runStatus = 2;
+    restoreInterrupts(oldPsr);
+    blockMe();
+    return 0;
+}
+
 /* --------------------- phase 1a functions --------------------- */
 int init(void *)
 {
@@ -252,73 +314,7 @@ void TEMP_switchTo(int pid)
     restoreInterrupts(oldPsr);
 }
 
-int join(int *status)
-{
-    unsigned int oldPsr = disableInterrupts();
 
-    if (status == NULL)
-    {
-        return -3;
-    }
-
-    // iterate through children, looking for a dead one
-    struct PCB *next = currProc->newestChild;
-    if (next == NULL)
-    {
-        return -2;
-    }
-
-    int index, pid;
-    while (next != NULL)
-    {
-        if (next->isDead)
-        {
-            *status = next->status;
-            pid = next->pid;
-            index = pid % MAXPROC;
-            // next is an only child
-            if ((next == currProc->newestChild) && (next->nextSibling == NULL))
-            {
-                currProc->newestChild = NULL;
-            }
-            // next has next siblings
-            else if (next->nextSibling != NULL)
-            {
-                // next is newestChild
-                if (next == currProc->newestChild)
-                {
-                    currProc->newestChild = next->nextSibling;
-                    (next->nextSibling)->prevSibling = NULL;
-                }
-                // next is a middle child
-                else
-                {
-                    (next->prevSibling)->nextSibling = next->nextSibling;
-                    (next->nextSibling)->prevSibling = next->prevSibling;
-                }
-            }
-            // next does not have next siblings
-            else
-            {
-                (next->prevSibling)->nextSibling = NULL;
-            }
-
-            free(next->stack);
-            memset(&procTable[index], 0, sizeof(struct PCB));
-            filledSlots--;
-            return pid;
-        }
-        else
-        {
-            next = next->nextSibling;
-        }
-    }
-    // after while loop, means there are no dead children, so block
-    currProc->runStatus = 2;
-    restoreInterrupts(oldPsr);
-    blockMe();
-    return 0;
-}
 
 void quit_phase_1a(int status, int switchToPid)
 {
