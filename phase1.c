@@ -78,6 +78,10 @@ void zap(int pid)
     
 }
 
+/*
+ * Since there are no parameters, the reason for blocking gets set
+ * before calling this function by updating the runStatus field.
+ */
 void blockMe(void)
 {
     unsigned int oldPsr = disableInterrupts();
