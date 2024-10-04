@@ -13,7 +13,8 @@ struct PCB
     int stackSize;
     // 0 = running, 1 = ready/runnable, 2 = blocked in join,
     // 3 = blocked in zap, 4 = blocked in testcase
-    int runStatus;
+    // 5 = terminated
+    int runStatus; 
     USLOSS_Context context;
     char *stack;
     bool isDead;
@@ -102,10 +103,20 @@ void blockMe(void)
 int unblockProc(int pid)
 {
     unsigned int oldPsr = disableInterrupts();
-    // add to run queue
+    enforceKernelMode(4);
     struct PCB *proc = &procTable[pid % MAXPROC];
+    int runStatus = proc->runStatus;
+    // check if proc is not blocked or doesn't exist
+    if (proc->pid != pid) // the proc does not exist
+        return -2;
+    else if ((runStatus == 0) || (runStatus == 1) || (runStatus == 5)) // proc is not blocked
+        return -2;
+    
+    // add to run queue
+    proc->runStatus = 1;
     addToQueue(proc);
 
+    dispatcher();
     restoreInterrupts(oldPsr);
 
     return proc->pid;
@@ -347,8 +358,8 @@ int init(void *)
 
     return 0;
 }
-
-/*void TEMP_switchTo(int pid)
+/*
+void TEMP_switchTo(int pid)
 {
     unsigned int oldPsr = disableInterrupts();
     gOldPsr = oldPsr; // keep track of old psr in global variable
@@ -363,7 +374,9 @@ int init(void *)
         USLOSS_ContextSwitch(&oldProc->context, &switchTo->context);
 
     restoreInterrupts(oldPsr);
-}*/
+}
+*/
+
 
 void quit_phase_1a(int status, int switchToPid)
 {
@@ -576,6 +589,7 @@ void getNextPid(void)
  * 1 = spork
  * 2 = quit_phase_1a
  * 3 = blockMe
+ * 4 = unblockProc
  */
 void enforceKernelMode(int i)
 {
@@ -587,6 +601,8 @@ void enforceKernelMode(int i)
             USLOSS_Console("ERROR: Someone attempted to call quit_phase_1a while in user mode!\n");
         else if (i == 3)
             USLOSS_Console("ERROR: Someone attempted to call blockMe while in user mode!\n");
+        else if (i == 4)
+            USLOSS_Console("ERROR: Someone attempted to call unblockProc while in user mode!\n");
 
         USLOSS_Halt(1);
     }
