@@ -116,11 +116,6 @@ void dispatcher(void)
     unsigned int oldPsr = disableInterrupts();
     gOldPsr = oldPsr; // keep track of old psr in global variable
 
-    //USLOSS_Console("fieoj\n");
-
-    if (currentTime() < switchTime + 80)
-        return;
-
     struct PCB *oldProc = currProc;
     struct PCB *switchTo = NULL;
 
@@ -142,16 +137,24 @@ void dispatcher(void)
         switchTo = p6Head;
     }
 
+    if ((oldProc != NULL && oldProc->pid == switchTo->pid) || (currProc != NULL && switchTo->priority >= oldProc->priority && currentTime() < switchTime + 80))
+        return;
+
+    USLOSS_Console("swt: %s\n", switchTo->name);
+    if (oldProc != NULL)
+        USLOSS_Console("JF2: %d\n", oldProc->name);
+    //USLOSS_Console("JF22: %d\n", p3Head == NULL);
+
     if (doRotate)
         rotateQueue;
 
-    //USLOSS_Console("hf: %s\n", switchTo->name);
+    USLOSS_Console("go\n");
 
     currProc = switchTo;
     switchTime = currentTime();
 
     // when call dispatcher for first time, don't save state
-    if (oldProc == NULL) 
+    if (oldProc == NULL)
         USLOSS_ContextSwitch(NULL, &switchTo->context);
     else
         USLOSS_ContextSwitch(&oldProc->context, &switchTo->context);
@@ -188,7 +191,7 @@ void phase1_init(void)
     p6Head = initProc;
     p6Tail = initProc;
 
-    //currProc = initProc;
+    // currProc = initProc;
     restoreInterrupts(oldPsr);
 }
 
