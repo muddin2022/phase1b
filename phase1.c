@@ -28,7 +28,26 @@ struct PCB
     struct PCB *nextSibling;
 };
 
+struct RunQueue
+{
+    struct PCB *p1head;
+    struct PCB *p1tail;
+
+    struct PCB *p2head;
+    struct PCB *p2tail;
+
+    struct PCB *p3head;
+    struct PCB *p3tail;
+
+    struct PCB *p4head;
+    struct PCB *p4tail;
+
+    struct PCB *p5head;
+    struct PCB *p5tail;
+}
+
 /* ----------------------- Global variables ---------------------- */
+struct PCB runQueue;
 struct PCB *currProc;
 struct PCB procTable[MAXPROC];
 char initStack[USLOSS_MIN_STACK];
