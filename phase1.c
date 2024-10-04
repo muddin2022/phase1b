@@ -229,6 +229,9 @@ void phase1_init(void)
     initProc->isDead = false;
     initProc->isZapped = false;
     initProc->arg = NULL;
+
+    initProc->zapQueue = NULL;
+    initProc->nextZapQueue = NULL;
     initProc->nextRunQueue = NULL;
     initProc->prevRunQueue = NULL;
 
@@ -276,6 +279,8 @@ int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priorit
     newProc->isZapped = false;
     newProc->funcPtr = func;
     newProc->arg = arg;
+    newProc->zapQueue = NULL;
+    newProc->nextZapQueue = NULL;
 
     addChild(currProc, newProc);
 
@@ -581,8 +586,19 @@ void addToQueue(struct PCB *proc)
     proc->nextRunQueue = NULL;
 }
 
+/*
+ * Adds the current process to the zap queue of the process it is 
+ * trying to zap (terget). When the target dies, all processes that 
+ * zap it get woken up at the same time, so order doesn't matter, 
+ * just add to the head of the queue. 
+ */
 void addToZapQueue(struct PCB *target)
-{}
+{
+    struct PCB *temp = target->zapQueue;
+    target->zapQueue = currProc;
+    if (temp != NULL)
+        currProc->nextZapQueue = temp; 
+}
 
 /*
  * Checks the nextPid to see if it maps to a position in the
