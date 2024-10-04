@@ -18,6 +18,7 @@ struct PCB
     USLOSS_Context context;
     char *stack;
     bool isDead;
+    bool isZapped; // true means that another proc has zapped this proc
 
     int (*funcPtr)(void *);
     void *arg;
@@ -81,6 +82,33 @@ void quit(int status)
 
 void zap(int pid)
 {
+    unsigned int oldPsr = disableInterrupts();
+    struct PCB *target = &procTable[pid % MAXPROC];
+    if (pid == currProc->pid)
+    {
+        USLOSS_Console("ERROR: process is trying to zap itself\n");
+        USLOSS_Halt(1);
+    }
+    else if (target->pid == 5)
+    {
+        USLOSS_Console("ERROR: process is trying to zap a terminated process\n");
+        USLOSS_Halt(1);
+    }
+    else if (target->pid != pid)
+    {
+        USLOSS_Console("ERROR: process is trying to zap a nonexisting process\n");
+        USLOSS_Halt(1);
+    }
+    else if (pid == 1)
+    {
+        USLOSS_Console("ERROR: process is trying to zap init process");
+        USLOSS_Halt(1);
+    }
+    
+    target->isZapped = true;
+    currProc->runStatus = 3;
+    blockMe(); // blockMe calls the dispatcher, so don't need to do that here
+    restoreInterrupts(oldPsr);
 }
 
 /*
@@ -192,6 +220,7 @@ void phase1_init(void)
     initProc->funcPtr = &init;
     initProc->stack = initStack;
     initProc->isDead = false;
+    initProc->isZapped = false;
     initProc->arg = NULL;
     initProc->nextRunQueue = NULL;
     initProc->prevRunQueue = NULL;
@@ -237,6 +266,7 @@ int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priorit
     newProc->stack = malloc(stacksize);
     newProc->runStatus = 1;
     newProc->isDead = false;
+    newProc->isZapped = false;
     newProc->funcPtr = func;
     newProc->arg = arg;
 
