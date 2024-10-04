@@ -97,10 +97,6 @@ void dispatcher(void)
 {
 }
 
-/*int currentTime(void)
-{
-}*/
-
 /* --------------------- phase 1a functions updated in phase 1b --------------------- */
 void phase1_init(void)
 {
