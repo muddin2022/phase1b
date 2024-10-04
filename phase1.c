@@ -24,6 +24,9 @@ struct PCB
     void *arg;
     int retVal;
 
+    struct PCB *zapQueue; // head of the queue of procs that are trying to zap this proc
+    struct PCB *nextZapQueue;
+
     struct PCB *nextRunQueue;
     struct PCB *prevRunQueue;
 
@@ -68,6 +71,7 @@ void sporkTrampoline(void);
 void enforceKernelMode();
 void addChild(struct PCB *parent, struct PCB *child);
 void addToQueue(struct PCB *proc);
+void addToZapQueue(struct PCB *target);
 void removeFromQueue(void);
 void rotateQueue(void);
 void TEMP_switchTo(int pid);
@@ -107,6 +111,9 @@ void zap(int pid)
     
     target->isZapped = true;
     currProc->runStatus = 3;
+    // add to zap queue of the target, so that currProc can be woken up later on
+    addToZapQueue(target);
+
     blockMe(); // blockMe calls the dispatcher, so don't need to do that here
     restoreInterrupts(oldPsr);
 }
@@ -573,6 +580,9 @@ void addToQueue(struct PCB *proc)
     proc->prevRunQueue = oldTail;
     proc->nextRunQueue = NULL;
 }
+
+void addToZapQueue(struct PCB *target)
+{}
 
 /*
  * Checks the nextPid to see if it maps to a position in the
