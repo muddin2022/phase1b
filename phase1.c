@@ -308,7 +308,10 @@ int join(int *status)
             next = next->nextSibling;
         }
     }
+    // after while loop, means there are no dead children, so block
+    currProc->runStatus = 2;
     restoreInterrupts(oldPsr);
+    blockMe();
     return 0;
 }
 
