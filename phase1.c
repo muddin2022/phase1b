@@ -80,10 +80,10 @@ void zap(int pid)
 void blockMe(void)
 {
     unsigned int oldPsr = disableInterrupts();
-    // remove from run queue
+    enforceKernelMode(3);
     removeFromQueue();
-
     restoreInterrupts(oldPsr);
+    dispatcher();
 }
 
 int unblockProc(int pid)
@@ -520,6 +520,7 @@ void getNextPid(void)
  * kernel-mode function the process tried to call.
  * 1 = spork
  * 2 = quit_phase_1a
+ * 3 = blockMe
  */
 void enforceKernelMode(int i)
 {
@@ -529,6 +530,8 @@ void enforceKernelMode(int i)
             USLOSS_Console("ERROR: Someone attempted to call spork while in user mode!\n");
         else if (i == 2)
             USLOSS_Console("ERROR: Someone attempted to call quit_phase_1a while in user mode!\n");
+        else if (i == 3)
+            USLOSS_Console("ERROR: Someone attempted to call blockMe while in user mode!\n");
 
         USLOSS_Halt(1);
     }
