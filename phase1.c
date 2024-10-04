@@ -305,7 +305,7 @@ int init(void *)
 
     return 0;
 }
-
+/*
 void TEMP_switchTo(int pid)
 {
     unsigned int oldPsr = disableInterrupts();
@@ -322,7 +322,7 @@ void TEMP_switchTo(int pid)
 
     restoreInterrupts(oldPsr);
 }
-
+*/
 
 
 void quit_phase_1a(int status, int switchToPid)
