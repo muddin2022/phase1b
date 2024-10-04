@@ -12,7 +12,7 @@ struct PCB
     int priority;
     int stackSize;
     // 0 = running, 1 = ready/runnable, 2 = blocked in join, 
-    // 3 = blocked in zap, 4 = blocked for some other reason
+    // 3 = blocked in zap, 4 = blocked in testcase
     int runStatus; 
     USLOSS_Context context;
     char *stack;
@@ -75,12 +75,17 @@ void quit(int status)
 
 void zap(int pid)
 {
+    
 }
 
 void blockMe(void)
 {
     unsigned int oldPsr = disableInterrupts();
     enforceKernelMode(3);
+    if (currProc->runStatus == 0) 
+    { // this means blockMe was called by testcase, not another kernel function
+        currProc->runStatus = 4;
+    }
     removeFromQueue();
     restoreInterrupts(oldPsr);
     dispatcher();
