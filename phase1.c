@@ -98,8 +98,13 @@ void blockMe(void)
 int unblockProc(int pid)
 {
     unsigned int oldPsr = disableInterrupts();
+    enforceKernelMode(4);
+    // check if proc is not blocked or doesn't exist
+    
+
     // add to run queue
     struct PCB *proc = &procTable[pid % MAXPROC];
+    proc->runStatus = 1;
     addToQueue(proc);
 
     restoreInterrupts(oldPsr);
@@ -526,6 +531,7 @@ void getNextPid(void)
  * 1 = spork
  * 2 = quit_phase_1a
  * 3 = blockMe
+ * 4 = unblockProc
  */
 void enforceKernelMode(int i)
 {
@@ -537,6 +543,8 @@ void enforceKernelMode(int i)
             USLOSS_Console("ERROR: Someone attempted to call quit_phase_1a while in user mode!\n");
         else if (i == 3)
             USLOSS_Console("ERROR: Someone attempted to call blockMe while in user mode!\n");
+        else if (i == 4)
+            USLOSS_Console("ERROR: Someone attempted to call unblockProc while in user mode!\n");
 
         USLOSS_Halt(1);
     }
