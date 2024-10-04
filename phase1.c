@@ -33,7 +33,7 @@ struct PCB
 
 /* ----------------------- Global variables ---------------------- */
 struct PCB runQueue;
-struct PCB *currProc;
+struct PCB *currProc = NULL;
 struct PCB procTable[MAXPROC];
 char initStack[USLOSS_MIN_STACK];
 int nextPid = 1;
@@ -116,7 +116,7 @@ void dispatcher(void)
     unsigned int oldPsr = disableInterrupts();
     gOldPsr = oldPsr; // keep track of old psr in global variable
 
-    USLOSS_Console("fieoj\n");
+    //USLOSS_Console("fieoj\n");
 
     if (currentTime() < switchTime + 80)
         return;
@@ -145,12 +145,16 @@ void dispatcher(void)
     if (doRotate)
         rotateQueue;
 
-    USLOSS_Console("hf: %s\n", switchTo->name);
+    //USLOSS_Console("hf: %s\n", switchTo->name);
 
     currProc = switchTo;
     switchTime = currentTime();
 
-    USLOSS_ContextSwitch(&oldProc->context, &switchTo->context);
+    // when call dispatcher for first time, don't save state
+    if (oldProc == NULL) 
+        USLOSS_ContextSwitch(NULL, &switchTo->context);
+    else
+        USLOSS_ContextSwitch(&oldProc->context, &switchTo->context);
 
     restoreInterrupts(oldPsr);
 }
@@ -184,7 +188,7 @@ void phase1_init(void)
     p6Head = initProc;
     p6Tail = initProc;
 
-    currProc = initProc;
+    //currProc = initProc;
     restoreInterrupts(oldPsr);
 }
 
@@ -310,9 +314,10 @@ int init(void *)
     phase5_mmu_pageTable_free(currProc->pid, NULL);
 
     // create testcase_main proc
-    USLOSS_Console("Phase 1A TEMPORARY HACK: init() manually switching to testcase_main() after using spork() to create it.\n");
     int pid = spork("testcase_main", &testcaseMainWrapper, NULL, USLOSS_MIN_STACK, 3);
     currProc->newestChild = &procTable[pid % MAXPROC];
+
+    dispatcher();
 
     // call join to clean up procTable
     int deadPid = 1;
