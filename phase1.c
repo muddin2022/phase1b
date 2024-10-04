@@ -37,6 +37,7 @@ int nextPid = 1;
 int lastPid = -1;
 int filledSlots = 0;
 unsigned int gOldPsr;
+int switchTime;
 
 // run queues, p1Head means priority 1 head pointer
 struct PCB *p1Head;
@@ -98,16 +99,25 @@ void dispatcher(void)
     struct PCB *oldProc = currProc;
     struct PCB *switchTo = NULL;
 
+    if (currentTime() < switchTime + 80)
+        return;
+
     if (p1head != NULL)
-    {
         switchTo = p1Head;
-    }
+    else if (p2head != NULL)
+        switchTo = p2Head;
+    else if (p3head != NULL)
+        switchTo = p3Head;
+    else if (p4head != NULL)
+        switchTo = p4Head;
+    else if (p5head != NULL)
+        switchTo = p5head;
     else
-    { // context switch to testcase_main
-    }
+        switchTo = initProc;
 
     rotateQueue();
     currProc = switchTo;
+    switchTime = currentTime();
 
     USLOSS_ContextSwitch(&oldProc->context, &switchTo->context);
 }
