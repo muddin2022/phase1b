@@ -40,7 +40,7 @@ int nextPid = 1;
 int lastPid = -1;
 int filledSlots = 0;
 unsigned int gOldPsr;
-int switchTime;
+int switchTime = -81;
 
 // run queues, p1Head means priority 1 head pointer
 struct PCB *p1Head;
@@ -68,6 +68,7 @@ void addChild(struct PCB *parent, struct PCB *child);
 void addToQueue(struct PCB *proc);
 void removeFromQueue(void);
 void rotateQueue(void);
+void TEMP_switchTo(int pid);
 
 /* --------------------- phase 1b functions --------------------- */
 
@@ -323,7 +324,7 @@ int init(void *)
     return 0;
 }
 
-void TEMP_switchTo(int pid)
+/*void TEMP_switchTo(int pid)
 {
     unsigned int oldPsr = disableInterrupts();
     gOldPsr = oldPsr; // keep track of old psr in global variable
@@ -338,7 +339,7 @@ void TEMP_switchTo(int pid)
         USLOSS_ContextSwitch(&oldProc->context, &switchTo->context);
 
     restoreInterrupts(oldPsr);
-}
+}*/
 
 void quit_phase_1a(int status, int switchToPid)
 {
