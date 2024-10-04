@@ -11,6 +11,9 @@ struct PCB
     int status;
     int priority;
     int stackSize;
+    // 0 = running, 1 = ready/runnable, 2 = blocked in join, 
+    // 3 = blocked in zap, 4 = blocked for some other reason
+    int runStatus; 
     USLOSS_Context context;
     char *stack;
     bool isDead;
@@ -116,6 +119,7 @@ void phase1_init(void)
     strcpy(initProc->name, "init");
     initProc->priority = 6;
     initProc->stackSize = USLOSS_MIN_STACK;
+    initProc->runStatus = 1;
     initProc->funcPtr = &init;
     initProc->stack = initStack;
     initProc->isDead = false;
@@ -160,7 +164,9 @@ int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priorit
     strcpy(newProc->name, name);
     newProc->pid = pid;
     newProc->priority = priority;
+    newProc->stackSize = stacksize;
     newProc->stack = malloc(stacksize);
+    newProc->runStatus = 1;
     newProc->isDead = false;
     newProc->funcPtr = func;
     newProc->arg = arg;
