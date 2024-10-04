@@ -13,6 +13,7 @@ struct PCB
     int stackSize;
     // 0 = running, 1 = ready/runnable, 2 = blocked in join, 
     // 3 = blocked in zap, 4 = blocked in testcase
+    // 5 = terminated
     int runStatus; 
     USLOSS_Context context;
     char *stack;
@@ -99,11 +100,15 @@ int unblockProc(int pid)
 {
     unsigned int oldPsr = disableInterrupts();
     enforceKernelMode(4);
-    // check if proc is not blocked or doesn't exist
-    
-
-    // add to run queue
     struct PCB *proc = &procTable[pid % MAXPROC];
+    int runStatus = proc->runStatus;
+    // check if proc is not blocked or doesn't exist
+    if (proc->pid != pid) // the proc does not exist
+        return -2;
+    else if ((runStatus == 0) || (runStatus == 1) || (runStatus == 5)) // proc is not blocked
+        return -2;
+    
+    // add to run queue
     proc->runStatus = 1;
     addToQueue(proc);
 
