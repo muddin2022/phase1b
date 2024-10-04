@@ -116,6 +116,7 @@ int unblockProc(int pid)
     proc->runStatus = 1;
     addToQueue(proc);
 
+    dispatcher();
     restoreInterrupts(oldPsr);
 
     return proc->pid;
