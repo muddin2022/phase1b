@@ -74,6 +74,20 @@ void TEMP_switchTo(int pid);
 
 void quit(int status)
 {
+    if (currProc->newestChild != NULL)
+    {
+        USLOSS_Console("ERROR: Process pid %d called quit() while it still had children.\n", currProc->pid);
+        USLOSS_Halt(1);
+    }
+    enforceKernelMode(2);
+
+    currProc->status = status;
+    currProc->isDead = true;
+
+    if (currProc->parent->runStatus == 2) unblockProc(currProc->parent->pid);
+    dispatcher();
+    // TEMP_switchTo(currProc->parent->pid);
+
     while (true)
         ;
 }
@@ -140,15 +154,8 @@ void dispatcher(void)
     if ((oldProc != NULL && oldProc->pid == switchTo->pid) || (currProc != NULL && switchTo->priority >= oldProc->priority && currentTime() < switchTime + 80))
         return;
 
-    USLOSS_Console("swt: %s\n", switchTo->name);
-    if (oldProc != NULL)
-        USLOSS_Console("JF2: %d\n", oldProc->name);
-    //USLOSS_Console("JF22: %d\n", p3Head == NULL);
-
     if (doRotate)
-        rotateQueue;
-
-    USLOSS_Console("go\n");
+        rotateQueue();
 
     currProc = switchTo;
     switchTime = currentTime();
