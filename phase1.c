@@ -84,6 +84,12 @@ void blockMe(void)
 
 int unblockProc(int pid)
 {
+    unsigned int oldPsr = disableInterrupts();
+    // add to run queue
+    struct PCB *proc = &procTable[pid % MAXPROC];
+    addToQueue(proc);
+
+    restoreInterrupts(oldPsr);
 }
 
 void dispatcher(void)
