@@ -11,6 +11,9 @@ struct PCB
     int status;
     int priority;
     int stackSize;
+    // 0 = running, 1 = ready/runnable, 2 = blocked in join, 
+    // 3 = blocked in zap, 4 = blocked in testcase
+    int runStatus; 
     USLOSS_Context context;
     char *stack;
     bool isDead;
@@ -72,15 +75,24 @@ void quit(int status)
 
 void zap(int pid)
 {
+    
 }
 
+/*
+ * Since there are no parameters, the reason for blocking gets set
+ * before calling this function by updating the runStatus field.
+ */
 void blockMe(void)
 {
     unsigned int oldPsr = disableInterrupts();
-    // remove from run queue
+    enforceKernelMode(3);
+    if (currProc->runStatus == 0) 
+    { // this means blockMe was called by testcase, not another kernel function
+        currProc->runStatus = 4;
+    }
     removeFromQueue();
-
     restoreInterrupts(oldPsr);
+    dispatcher();
 }
 
 int unblockProc(int pid)
@@ -116,6 +128,7 @@ void phase1_init(void)
     strcpy(initProc->name, "init");
     initProc->priority = 6;
     initProc->stackSize = USLOSS_MIN_STACK;
+    initProc->runStatus = 1;
     initProc->funcPtr = &init;
     initProc->stack = initStack;
     initProc->isDead = false;
@@ -160,7 +173,9 @@ int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priorit
     strcpy(newProc->name, name);
     newProc->pid = pid;
     newProc->priority = priority;
+    newProc->stackSize = stacksize;
     newProc->stack = malloc(stacksize);
+    newProc->runStatus = 1;
     newProc->isDead = false;
     newProc->funcPtr = func;
     newProc->arg = arg;
@@ -178,6 +193,68 @@ int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priorit
     dispatcher();
 
     return pid;
+}
+
+int join(int *status)
+{
+    unsigned int oldPsr = disableInterrupts();
+
+    if (status == NULL)
+        return -3;
+    
+
+    // iterate through children, looking for a dead one
+    struct PCB *next = currProc->newestChild;
+    if (next == NULL)
+        return -2;
+    
+
+    int index, pid;
+    while (next != NULL)
+    {
+        if (next->isDead)
+        {
+            *status = next->status;
+            pid = next->pid;
+            index = pid % MAXPROC;
+            // next is an only child
+            if ((next == currProc->newestChild) && (next->nextSibling == NULL))
+                currProc->newestChild = NULL;
+            
+            // next has next siblings
+            else if (next->nextSibling != NULL)
+            {
+                // next is newestChild
+                if (next == currProc->newestChild)
+                {
+                    currProc->newestChild = next->nextSibling;
+                    (next->nextSibling)->prevSibling = NULL;
+                }
+                // next is a middle child
+                else
+                {
+                    (next->prevSibling)->nextSibling = next->nextSibling;
+                    (next->nextSibling)->prevSibling = next->prevSibling;
+                }
+            }
+            // next does not have next siblings
+            else
+                (next->prevSibling)->nextSibling = NULL;
+            
+
+            free(next->stack);
+            memset(&procTable[index], 0, sizeof(struct PCB));
+            filledSlots--;
+            return pid;
+        }
+        else
+            next = next->nextSibling; 
+    }
+    // after while loop, means there are no dead children, so block
+    currProc->runStatus = 2;
+    restoreInterrupts(oldPsr);
+    blockMe();
+    return 0;
 }
 
 /* --------------------- phase 1a functions --------------------- */
@@ -241,70 +318,7 @@ void TEMP_switchTo(int pid)
     restoreInterrupts(oldPsr);
 }
 
-int join(int *status)
-{
-    unsigned int oldPsr = disableInterrupts();
 
-    if (status == NULL)
-    {
-        return -3;
-    }
-
-    // iterate through children, looking for a dead one
-    struct PCB *next = currProc->newestChild;
-    if (next == NULL)
-    {
-        return -2;
-    }
-
-    int index, pid;
-    while (next != NULL)
-    {
-        if (next->isDead)
-        {
-            *status = next->status;
-            pid = next->pid;
-            index = pid % MAXPROC;
-            // next is an only child
-            if ((next == currProc->newestChild) && (next->nextSibling == NULL))
-            {
-                currProc->newestChild = NULL;
-            }
-            // next has next siblings
-            else if (next->nextSibling != NULL)
-            {
-                // next is newestChild
-                if (next == currProc->newestChild)
-                {
-                    currProc->newestChild = next->nextSibling;
-                    (next->nextSibling)->prevSibling = NULL;
-                }
-                // next is a middle child
-                else
-                {
-                    (next->prevSibling)->nextSibling = next->nextSibling;
-                    (next->nextSibling)->prevSibling = next->prevSibling;
-                }
-            }
-            // next does not have next siblings
-            else
-            {
-                (next->prevSibling)->nextSibling = NULL;
-            }
-
-            free(next->stack);
-            memset(&procTable[index], 0, sizeof(struct PCB));
-            filledSlots--;
-            return pid;
-        }
-        else
-        {
-            next = next->nextSibling;
-        }
-    }
-    restoreInterrupts(oldPsr);
-    return 0;
-}
 
 void quit_phase_1a(int status, int switchToPid)
 {
@@ -511,6 +525,7 @@ void getNextPid(void)
  * kernel-mode function the process tried to call.
  * 1 = spork
  * 2 = quit_phase_1a
+ * 3 = blockMe
  */
 void enforceKernelMode(int i)
 {
@@ -520,6 +535,8 @@ void enforceKernelMode(int i)
             USLOSS_Console("ERROR: Someone attempted to call spork while in user mode!\n");
         else if (i == 2)
             USLOSS_Console("ERROR: Someone attempted to call quit_phase_1a while in user mode!\n");
+        else if (i == 3)
+            USLOSS_Console("ERROR: Someone attempted to call blockMe while in user mode!\n");
 
         USLOSS_Halt(1);
     }
