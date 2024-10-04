@@ -85,7 +85,11 @@ void quit(int status)
     currProc->status = status;
     currProc->isDead = true;
 
+    USLOSS_Console("i: %s\n", currProc->name);
+
     if (currProc->parent->runStatus == 2) unblockProc(currProc->parent->pid);
+    removeFromQueue();
+
     dispatcher();
     // TEMP_switchTo(currProc->parent->pid);
 
@@ -145,6 +149,8 @@ void dispatcher(void)
     struct PCB *switchTo = NULL;
 
     bool doRotate = true;
+
+    if (currProc != NULL) USLOSS_Console("fj: %s\n", currProc->name);
 
     if (p1Head != NULL)
         switchTo = p1Head;
