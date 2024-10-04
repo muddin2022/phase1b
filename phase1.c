@@ -56,6 +56,20 @@ int lastPid = -1;
 int filledSlots = 0;
 unsigned int gOldPsr;
 
+// run queues, p1Head means priority 1 head pointer
+struct PCB *p1Head;
+struct PCB *p1Tail;
+struct PCB *p2Head;
+struct PCB *p2Tail;
+struct PCB *p3Head;
+struct PCB *p3Tail;
+struct PCB *p4Head;
+struct PCB *p4Tail;
+struct PCB *p5Head;
+struct PCB *p5Tail;
+struct PCB *p6Head;
+struct PCB *p6Tail;
+
 /* --------------------- Function prototypes --------------------- */
 void getNextPid(void);
 unsigned int disableInterrupts(void);
@@ -65,6 +79,8 @@ int testcaseMainWrapper(void *args);
 void sporkTrampoline(void);
 void enforceKernelMode();
 void addChild(struct PCB *parent, struct PCB *child);
+void addToQueue(struct PCB *proc);
+void removeFromQueue();
 
 /* --------------------- phase 1b functions --------------------- */
 
@@ -78,21 +94,62 @@ void zap(int pid)
 
 void blockMe(void)
 {
+    unsigned int oldPsr = disableInterrupts();
+    // remove from run queue
+    removeFromQueue();
+
+    restoreInterrupts(oldPsr);
 }
 
 int unblockProc(int pid)
 {
+    unsigned int oldPsr = disableInterrupts();
+    // add to run queue
+    struct PCB *proc = &procTable[pid % MAXPROC];
+    addToQueue(proc);
+
+    restoreInterrupts(oldPsr);
 }
 
 void dispatcher(void)
 {
 }
 
-int currentTime(void)
+/*int currentTime(void)
 {
-}
+}*/
 
 /* --------------------- phase 1a functions updated in phase 1b --------------------- */
+void phase1_init(void)
+{
+    unsigned int oldPsr = disableInterrupts();
+
+    memset(procTable, 0, sizeof(procTable));
+
+    getNextPid();
+    int index = nextPid % MAXPROC;
+    struct PCB *initProc = &procTable[index];
+
+    initProc->pid = nextPid;
+    strcpy(initProc->name, "init");
+    initProc->priority = 6;
+    initProc->stackSize = USLOSS_MIN_STACK;
+    initProc->funcPtr = &init;
+    initProc->stack = initStack;
+    initProc->isDead = false;
+    initProc->arg = NULL;
+    initProc->nextRunQueue = NULL;
+    initProc->prevRunQueue = NULL;
+
+    USLOSS_ContextInit(&(procTable[index].context), initProc->stack, USLOSS_MIN_STACK, NULL, &sporkTrampoline);
+    filledSlots++;
+
+    p6Head = initProc;
+    p6Tail = initProc;
+
+    currProc = initProc;
+    restoreInterrupts(oldPsr);
+}
 
 int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priority)
 {
@@ -130,6 +187,9 @@ int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priorit
 
     USLOSS_ContextInit(&newProc->context, newProc->stack, stacksize, NULL, &sporkTrampoline);
 
+    // add to run queue, set run queue pointers
+    addToQueue(newProc);
+
     filledSlots++;
     restoreInterrupts(oldPsr);
 
@@ -139,33 +199,6 @@ int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priorit
 }
 
 /* --------------------- phase 1a functions --------------------- */
-void phase1_init(void)
-{
-    unsigned int oldPsr = disableInterrupts();
-
-    memset(procTable, 0, sizeof(procTable));
-
-    getNextPid();
-    int index = nextPid % MAXPROC;
-    struct PCB *initProc = &procTable[index];
-
-    initProc->pid = nextPid;
-    strcpy(initProc->name, "init");
-    initProc->priority = 6;
-    initProc->stackSize = USLOSS_MIN_STACK;
-    initProc->funcPtr = &init;
-    initProc->stack = initStack;
-    initProc->isDead = false;
-
-    initProc->arg = NULL;
-
-    USLOSS_ContextInit(&(procTable[index].context), initProc->stack, USLOSS_MIN_STACK, NULL, &sporkTrampoline);
-    filledSlots++;
-
-    currProc = initProc;
-    restoreInterrupts(oldPsr);
-}
-
 int init(void *)
 {
     unsigned int oldPsr = disableInterrupts();
@@ -355,6 +388,103 @@ void dumpProcesses(void)
 }
 
 /* ------------ Helper functions, not defined in spec ------------ */
+/*
+ * Removes the current process from its run queue, and updates the nextRunQueue and prevRunQueue fields. Only processes that were running get removed, so always remove the head of the run queue.
+ */
+void removeFromQueue()
+{
+    int priority = currProc->priority;
+    struct PCB *newHead = currProc->nextRunQueue;
+
+    if (priority == 1)
+    {
+        p1Head = newHead;
+        if (newHead == NULL)
+            p1Tail = NULL;
+    }    
+    else if (priority == 2)
+    {
+        p2Head = newHead;
+        if (newHead == NULL)
+            p2Tail = NULL;
+    } 
+    else if (priority == 3)
+    {
+        p3Head = newHead;
+        if (newHead == NULL)
+            p3Tail = NULL;
+    }
+    else if (priority == 4)
+    {
+        p4Head = newHead;
+        if (newHead == NULL)
+            p4Tail = NULL;
+    }    
+    else
+    {
+        p5Head = newHead;
+        if (newHead == NULL)
+            p5Tail = NULL;
+    }
+
+    if (newHead != NULL)
+    {
+        newHead->prevRunQueue = NULL;
+        currProc->nextRunQueue = NULL;
+    }
+}
+
+/*
+ * Adds the proc to the appropriate run queue, and sets the 
+ * nextRunQueue and prevRunQueue fields. All processes get added to the end of the run queue.
+ */
+void addToQueue(struct PCB *proc) 
+{
+    int priority = proc->priority;
+    struct PCB *oldTail;
+    if (priority == 1) 
+    {
+        oldTail = p1Tail;
+        p1Tail = proc;
+        if (oldTail == NULL)
+            p1Head = proc;
+    } 
+    else if (priority == 2)
+    {
+        oldTail = p2Tail;
+        p2Tail = proc;
+        if (oldTail == NULL)
+            p2Head = proc;
+    } 
+    else if (priority == 3)
+    {
+        oldTail = p3Tail;
+        p3Tail = proc;
+        if (oldTail == NULL)
+            p3Head = proc;
+    }
+    else if (priority == 4)
+    {
+        oldTail = p4Tail;
+        p4Tail = proc;
+        if (oldTail == NULL)
+            p4Head = proc;
+    }
+    else
+    {
+        oldTail = p5Tail;
+        p5Tail = proc;
+        if (oldTail == NULL)
+            p5Head = proc;
+        
+    }
+
+    if (oldTail != NULL)
+        oldTail->nextRunQueue = proc;
+    proc->prevRunQueue = oldTail;
+    proc->nextRunQueue = NULL;
+}
+
 /*
  * Checks the nextPid to see if it maps to a position in the
  * procTable that is alredy filled. It keeps checking for a blank
