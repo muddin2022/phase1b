@@ -113,6 +113,7 @@ int unblockProc(int pid)
     addToQueue(proc);
 
     restoreInterrupts(oldPsr);
+    dispatcher();
 }
 
 void dispatcher(void)
