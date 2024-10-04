@@ -11,9 +11,9 @@ struct PCB
     int status;
     int priority;
     int stackSize;
-    // 0 = running, 1 = ready/runnable, 2 = blocked in join, 
+    // 0 = running, 1 = ready/runnable, 2 = blocked in join,
     // 3 = blocked in zap, 4 = blocked in testcase
-    int runStatus; 
+    int runStatus;
     USLOSS_Context context;
     char *stack;
     bool isDead;
@@ -66,17 +66,19 @@ void sporkTrampoline(void);
 void enforceKernelMode();
 void addChild(struct PCB *parent, struct PCB *child);
 void addToQueue(struct PCB *proc);
-void removeFromQueue();
+void removeFromQueue(void);
+void rotateQueue(void);
 
 /* --------------------- phase 1b functions --------------------- */
 
 void quit(int status)
 {
+    while (true)
+        ;
 }
 
 void zap(int pid)
 {
-    
 }
 
 /*
@@ -87,7 +89,7 @@ void blockMe(void)
 {
     unsigned int oldPsr = disableInterrupts();
     enforceKernelMode(3);
-    if (currProc->runStatus == 0) 
+    if (currProc->runStatus == 0)
     { // this means blockMe was called by testcase, not another kernel function
         currProc->runStatus = 4;
     }
@@ -104,6 +106,8 @@ int unblockProc(int pid)
     addToQueue(proc);
 
     restoreInterrupts(oldPsr);
+
+    return proc->pid;
 }
 
 void dispatcher(void)
@@ -114,18 +118,18 @@ void dispatcher(void)
     if (currentTime() < switchTime + 80)
         return;
 
-    if (p1head != NULL)
+    if (p1Head != NULL)
         switchTo = p1Head;
-    else if (p2head != NULL)
+    else if (p2Head != NULL)
         switchTo = p2Head;
-    else if (p3head != NULL)
+    else if (p3Head != NULL)
         switchTo = p3Head;
-    else if (p4head != NULL)
+    else if (p4Head != NULL)
         switchTo = p4Head;
-    else if (p5head != NULL)
-        switchTo = p5head;
+    else if (p5Head != NULL)
+        switchTo = p5Head;
     else
-        switchTo = initProc;
+        switchTo = &procTable[1];
 
     rotateQueue();
     currProc = switchTo;
@@ -222,13 +226,11 @@ int join(int *status)
 
     if (status == NULL)
         return -3;
-    
 
     // iterate through children, looking for a dead one
     struct PCB *next = currProc->newestChild;
     if (next == NULL)
         return -2;
-    
 
     int index, pid;
     while (next != NULL)
@@ -241,7 +243,7 @@ int join(int *status)
             // next is an only child
             if ((next == currProc->newestChild) && (next->nextSibling == NULL))
                 currProc->newestChild = NULL;
-            
+
             // next has next siblings
             else if (next->nextSibling != NULL)
             {
@@ -261,7 +263,6 @@ int join(int *status)
             // next does not have next siblings
             else
                 (next->prevSibling)->nextSibling = NULL;
-            
 
             free(next->stack);
             memset(&procTable[index], 0, sizeof(struct PCB));
@@ -269,7 +270,7 @@ int join(int *status)
             return pid;
         }
         else
-            next = next->nextSibling; 
+            next = next->nextSibling;
     }
     // after while loop, means there are no dead children, so block
     currProc->runStatus = 2;
@@ -338,8 +339,6 @@ void TEMP_switchTo(int pid)
 
     restoreInterrupts(oldPsr);
 }
-
-
 
 void quit_phase_1a(int status, int switchToPid)
 {
