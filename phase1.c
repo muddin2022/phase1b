@@ -95,6 +95,21 @@ int unblockProc(int pid)
 
 void dispatcher(void)
 {
+    struct PCB *oldProc = currProc;
+    struct PCB *switchTo = NULL;
+
+    if (p1head != NULL)
+    {
+        switchTo = p1Head;
+    }
+    else
+    { // context switch to testcase_main
+    }
+
+    rotateQueue();
+    currProc = switchTo;
+
+    USLOSS_ContextSwitch(&oldProc->context, &switchTo->context);
 }
 
 /* --------------------- phase 1a functions updated in phase 1b --------------------- */
@@ -369,6 +384,12 @@ void dumpProcesses(void)
 /*
  * Removes the current process from its run queue, and updates the nextRunQueue and prevRunQueue fields. Only processes that were running get removed, so always remove the head of the run queue.
  */
+void rotateQueue()
+{
+    removeFromQueue();
+    addToQueue(currProc);
+}
+
 void removeFromQueue()
 {
     int priority = currProc->priority;
@@ -379,13 +400,13 @@ void removeFromQueue()
         p1Head = newHead;
         if (newHead == NULL)
             p1Tail = NULL;
-    }    
+    }
     else if (priority == 2)
     {
         p2Head = newHead;
         if (newHead == NULL)
             p2Tail = NULL;
-    } 
+    }
     else if (priority == 3)
     {
         p3Head = newHead;
@@ -397,7 +418,7 @@ void removeFromQueue()
         p4Head = newHead;
         if (newHead == NULL)
             p4Tail = NULL;
-    }    
+    }
     else
     {
         p5Head = newHead;
@@ -413,27 +434,27 @@ void removeFromQueue()
 }
 
 /*
- * Adds the proc to the appropriate run queue, and sets the 
+ * Adds the proc to the appropriate run queue, and sets the
  * nextRunQueue and prevRunQueue fields. All processes get added to the end of the run queue.
  */
-void addToQueue(struct PCB *proc) 
+void addToQueue(struct PCB *proc)
 {
     int priority = proc->priority;
     struct PCB *oldTail;
-    if (priority == 1) 
+    if (priority == 1)
     {
         oldTail = p1Tail;
         p1Tail = proc;
         if (oldTail == NULL)
             p1Head = proc;
-    } 
+    }
     else if (priority == 2)
     {
         oldTail = p2Tail;
         p2Tail = proc;
         if (oldTail == NULL)
             p2Head = proc;
-    } 
+    }
     else if (priority == 3)
     {
         oldTail = p3Tail;
@@ -454,7 +475,6 @@ void addToQueue(struct PCB *proc)
         p5Tail = proc;
         if (oldTail == NULL)
             p5Head = proc;
-        
     }
 
     if (oldTail != NULL)
