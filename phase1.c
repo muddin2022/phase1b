@@ -41,6 +41,7 @@ int lastPid = -1;
 int filledSlots = 0;
 unsigned int gOldPsr;
 int switchTime = -81;
+bool firstDispatch = true;
 
 // run queues, p1Head means priority 1 head pointer
 struct PCB *p1Head;
@@ -113,12 +114,14 @@ int unblockProc(int pid)
 
 void dispatcher(void)
 {
+    unsigned int oldPsr = disableInterrupts();
+    gOldPsr = oldPsr; // keep track of old psr in global variable
+
     struct PCB *oldProc = currProc;
     struct PCB *switchTo = NULL;
 
-    if (currentTime() < switchTime + 80)
-        return;
-
+    bool doRotate = true;
+    // check if higher priority proc is available to run
     if (p1Head != NULL)
         switchTo = p1Head;
     else if (p2Head != NULL)
@@ -130,13 +133,33 @@ void dispatcher(void)
     else if (p5Head != NULL)
         switchTo = p5Head;
     else
-        switchTo = &procTable[1];
+    {
+        doRotate = false;
+        switchTo = p6Head;
+    }
 
-    rotateQueue();
+    // if no higher priority available, go through run queue
+    if (currentTime() - switchTime >= 80000)
+    {
+        printf("It has been 80ms, switching to next proc in run queue.]n");
+    }
+
+    if (doRotate)
+        rotateQueue;
+
     currProc = switchTo;
     switchTime = currentTime();
 
-    USLOSS_ContextSwitch(&oldProc->context, &switchTo->context);
+    // when call dispatcher for first time, don't save state
+    if (firstDispatch) 
+    {
+        USLOSS_ContextSwitch(NULL, &switchTo->context);
+        firstDispatch = false;
+    }
+    else
+        USLOSS_ContextSwitch(&oldProc->context, &switchTo->context);
+
+    restoreInterrupts(oldPsr);
 }
 
 /* --------------------- phase 1a functions updated in phase 1b --------------------- */
@@ -174,10 +197,11 @@ void phase1_init(void)
 
 int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priority)
 {
-    enforceKernelMode(1);
+    
 
     // disable interrupts for new process creation
     unsigned int oldPsr = disableInterrupts();
+    enforceKernelMode(1);
 
     // check if procTable is full
     if (filledSlots == 50)
@@ -214,9 +238,11 @@ int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priorit
     addToQueue(newProc);
 
     filledSlots++;
+    dispatcher();
+
     restoreInterrupts(oldPsr);
 
-    dispatcher();
+    
 
     return pid;
 }
