@@ -364,7 +364,7 @@ void dumpProcesses(void)
 
 /* ------------ Helper functions, not defined in spec ------------ */
 /*
- * Removes the current process from its run queue, and updates the nextRunQueue and prevRunQueue fields.
+ * Removes the current process from its run queue, and updates the nextRunQueue and prevRunQueue fields. Only processes that were running get removed, so always remove the head of the run queue.
  */
 void removeFromQueue()
 {
@@ -372,15 +372,35 @@ void removeFromQueue()
     struct PCB *newHead = currProc->nextRunQueue;
 
     if (priority == 1)
+    {
         p1Head = newHead;
+        if (newHead == NULL)
+            p1Tail = NULL;
+    }    
     else if (priority == 2)
+    {
         p2Head = newHead;
+        if (newHead == NULL)
+            p2Tail = NULL;
+    } 
     else if (priority == 3)
+    {
         p3Head = newHead;
+        if (newHead == NULL)
+            p3Tail = NULL;
+    }
     else if (priority == 4)
+    {
         p4Head = newHead;
+        if (newHead == NULL)
+            p4Tail = NULL;
+    }    
     else
+    {
         p5Head = newHead;
+        if (newHead == NULL)
+            p5Tail = NULL;
+    }
 
     if (newHead != NULL)
     {
@@ -391,7 +411,7 @@ void removeFromQueue()
 
 /*
  * Adds the proc to the appropriate run queue, and sets the 
- * nextRunQueue and prevRunQueue fields.
+ * nextRunQueue and prevRunQueue fields. All processes get added to the end of the run queue.
  */
 void addToQueue(struct PCB *proc) 
 {
