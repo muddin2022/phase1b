@@ -11,9 +11,9 @@ struct PCB
     int status;
     int priority;
     int stackSize;
-    // 0 = running, 1 = ready/runnable, 2 = blocked in join, 
+    // 0 = running, 1 = ready/runnable, 2 = blocked in join,
     // 3 = blocked in zap, 4 = blocked in testcase
-    int runStatus; 
+    int runStatus;
     USLOSS_Context context;
     char *stack;
     bool isDead;
@@ -40,6 +40,7 @@ int nextPid = 1;
 int lastPid = -1;
 int filledSlots = 0;
 unsigned int gOldPsr;
+int switchTime = -81;
 
 // run queues, p1Head means priority 1 head pointer
 struct PCB *p1Head;
@@ -65,17 +66,20 @@ void sporkTrampoline(void);
 void enforceKernelMode();
 void addChild(struct PCB *parent, struct PCB *child);
 void addToQueue(struct PCB *proc);
-void removeFromQueue();
+void removeFromQueue(void);
+void rotateQueue(void);
+void TEMP_switchTo(int pid);
 
 /* --------------------- phase 1b functions --------------------- */
 
 void quit(int status)
 {
+    while (true)
+        ;
 }
 
 void zap(int pid)
 {
-    
 }
 
 /*
@@ -86,7 +90,7 @@ void blockMe(void)
 {
     unsigned int oldPsr = disableInterrupts();
     enforceKernelMode(3);
-    if (currProc->runStatus == 0) 
+    if (currProc->runStatus == 0)
     { // this means blockMe was called by testcase, not another kernel function
         currProc->runStatus = 4;
     }
@@ -103,15 +107,37 @@ int unblockProc(int pid)
     addToQueue(proc);
 
     restoreInterrupts(oldPsr);
+
+    return proc->pid;
 }
 
 void dispatcher(void)
 {
-}
+    struct PCB *oldProc = currProc;
+    struct PCB *switchTo = NULL;
 
-/*int currentTime(void)
-{
-}*/
+    if (currentTime() < switchTime + 80)
+        return;
+
+    if (p1Head != NULL)
+        switchTo = p1Head;
+    else if (p2Head != NULL)
+        switchTo = p2Head;
+    else if (p3Head != NULL)
+        switchTo = p3Head;
+    else if (p4Head != NULL)
+        switchTo = p4Head;
+    else if (p5Head != NULL)
+        switchTo = p5Head;
+    else
+        switchTo = &procTable[1];
+
+    rotateQueue();
+    currProc = switchTo;
+    switchTime = currentTime();
+
+    USLOSS_ContextSwitch(&oldProc->context, &switchTo->context);
+}
 
 /* --------------------- phase 1a functions updated in phase 1b --------------------- */
 void phase1_init(void)
@@ -201,13 +227,11 @@ int join(int *status)
 
     if (status == NULL)
         return -3;
-    
 
     // iterate through children, looking for a dead one
     struct PCB *next = currProc->newestChild;
     if (next == NULL)
         return -2;
-    
 
     int index, pid;
     while (next != NULL)
@@ -220,7 +244,7 @@ int join(int *status)
             // next is an only child
             if ((next == currProc->newestChild) && (next->nextSibling == NULL))
                 currProc->newestChild = NULL;
-            
+
             // next has next siblings
             else if (next->nextSibling != NULL)
             {
@@ -240,7 +264,6 @@ int join(int *status)
             // next does not have next siblings
             else
                 (next->prevSibling)->nextSibling = NULL;
-            
 
             free(next->stack);
             memset(&procTable[index], 0, sizeof(struct PCB));
@@ -248,7 +271,7 @@ int join(int *status)
             return pid;
         }
         else
-            next = next->nextSibling; 
+            next = next->nextSibling;
     }
     // after while loop, means there are no dead children, so block
     currProc->runStatus = 2;
@@ -301,7 +324,7 @@ int init(void *)
     return 0;
 }
 
-void TEMP_switchTo(int pid)
+/*void TEMP_switchTo(int pid)
 {
     unsigned int oldPsr = disableInterrupts();
     gOldPsr = oldPsr; // keep track of old psr in global variable
@@ -316,9 +339,7 @@ void TEMP_switchTo(int pid)
         USLOSS_ContextSwitch(&oldProc->context, &switchTo->context);
 
     restoreInterrupts(oldPsr);
-}
-
-
+}*/
 
 void quit_phase_1a(int status, int switchToPid)
 {
@@ -387,6 +408,12 @@ void dumpProcesses(void)
 /*
  * Removes the current process from its run queue, and updates the nextRunQueue and prevRunQueue fields. Only processes that were running get removed, so always remove the head of the run queue.
  */
+void rotateQueue()
+{
+    removeFromQueue();
+    addToQueue(currProc);
+}
+
 void removeFromQueue()
 {
     int priority = currProc->priority;
@@ -397,13 +424,13 @@ void removeFromQueue()
         p1Head = newHead;
         if (newHead == NULL)
             p1Tail = NULL;
-    }    
+    }
     else if (priority == 2)
     {
         p2Head = newHead;
         if (newHead == NULL)
             p2Tail = NULL;
-    } 
+    }
     else if (priority == 3)
     {
         p3Head = newHead;
@@ -415,7 +442,7 @@ void removeFromQueue()
         p4Head = newHead;
         if (newHead == NULL)
             p4Tail = NULL;
-    }    
+    }
     else
     {
         p5Head = newHead;
@@ -431,27 +458,27 @@ void removeFromQueue()
 }
 
 /*
- * Adds the proc to the appropriate run queue, and sets the 
+ * Adds the proc to the appropriate run queue, and sets the
  * nextRunQueue and prevRunQueue fields. All processes get added to the end of the run queue.
  */
-void addToQueue(struct PCB *proc) 
+void addToQueue(struct PCB *proc)
 {
     int priority = proc->priority;
     struct PCB *oldTail;
-    if (priority == 1) 
+    if (priority == 1)
     {
         oldTail = p1Tail;
         p1Tail = proc;
         if (oldTail == NULL)
             p1Head = proc;
-    } 
+    }
     else if (priority == 2)
     {
         oldTail = p2Tail;
         p2Tail = proc;
         if (oldTail == NULL)
             p2Head = proc;
-    } 
+    }
     else if (priority == 3)
     {
         oldTail = p3Tail;
@@ -472,7 +499,6 @@ void addToQueue(struct PCB *proc)
         p5Tail = proc;
         if (oldTail == NULL)
             p5Head = proc;
-        
     }
 
     if (oldTail != NULL)
