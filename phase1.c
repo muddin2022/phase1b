@@ -14,7 +14,7 @@ struct PCB
     // 0 = running, 1 = ready/runnable, 2 = blocked in join,
     // 3 = blocked in zap, 4 = blocked in testcase
     // 5 = terminated
-    int runStatus; 
+    int runStatus;
     USLOSS_Context context;
     char *stack;
     bool isDead;
@@ -84,10 +84,10 @@ void quit(int status)
 
     currProc->status = status;
     currProc->isDead = true;
+    currProc->runStatus = 5;
 
-    USLOSS_Console("i: %s\n", currProc->name);
-
-    if (currProc->parent->runStatus == 2) unblockProc(currProc->parent->pid);
+    if (currProc->parent->runStatus == 2)
+        unblockProc(currProc->parent->pid);
     removeFromQueue();
 
     dispatcher();
@@ -129,7 +129,7 @@ int unblockProc(int pid)
         return -2;
     else if ((runStatus == 0) || (runStatus == 1) || (runStatus == 5)) // proc is not blocked
         return -2;
-    
+
     // add to run queue
     proc->runStatus = 1;
     addToQueue(proc);
@@ -150,8 +150,6 @@ void dispatcher(void)
 
     bool doRotate = true;
 
-    if (currProc != NULL) USLOSS_Console("fj: %s\n", currProc->name);
-
     if (p1Head != NULL)
         switchTo = p1Head;
     else if (p2Head != NULL)
@@ -168,7 +166,7 @@ void dispatcher(void)
         switchTo = p6Head;
     }
 
-    if ((oldProc != NULL && oldProc->pid == switchTo->pid) || (currProc != NULL && switchTo->priority >= oldProc->priority && currentTime() < switchTime + 80))
+    if ((oldProc != NULL && oldProc->pid == switchTo->pid) || (currProc != NULL && currProc->runStatus != 5 && switchTo->priority >= oldProc->priority && currentTime() < switchTime + 80))
         return;
 
     if (doRotate)
@@ -389,7 +387,6 @@ void TEMP_switchTo(int pid)
     restoreInterrupts(oldPsr);
 }
 */
-
 
 void quit_phase_1a(int status, int switchToPid)
 {
@@ -648,7 +645,6 @@ void restoreInterrupts(unsigned int oldPsr)
 int testcaseMainWrapper(void *args)
 {
     testcase_main();
-    USLOSS_Console("Phase 1A TEMPORARY HACK: testcase_main() returned, simulation will now halt.\n");
     USLOSS_Halt(0);
     return 0;
 }
