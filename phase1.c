@@ -113,11 +113,18 @@ int unblockProc(int pid)
 
 void dispatcher(void)
 {
-    struct PCB *oldProc = currProc;
-    struct PCB *switchTo = NULL;
+    unsigned int oldPsr = disableInterrupts();
+    gOldPsr = oldPsr; // keep track of old psr in global variable
+
+    USLOSS_Console("fieoj\n");
 
     if (currentTime() < switchTime + 80)
         return;
+
+    struct PCB *oldProc = currProc;
+    struct PCB *switchTo = NULL;
+
+    bool doRotate = true;
 
     if (p1Head != NULL)
         switchTo = p1Head;
@@ -130,13 +137,22 @@ void dispatcher(void)
     else if (p5Head != NULL)
         switchTo = p5Head;
     else
-        switchTo = &procTable[1];
+    {
+        doRotate = false;
+        switchTo = p6Head;
+    }
 
-    rotateQueue();
+    if (doRotate)
+        rotateQueue;
+
+    USLOSS_Console("hf: %s\n", switchTo->name);
+
     currProc = switchTo;
     switchTime = currentTime();
 
     USLOSS_ContextSwitch(&oldProc->context, &switchTo->context);
+
+    restoreInterrupts(oldPsr);
 }
 
 /* --------------------- phase 1a functions updated in phase 1b --------------------- */
