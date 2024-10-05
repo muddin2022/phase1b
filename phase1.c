@@ -159,7 +159,7 @@ int unblockProc(int pid)
     enforceKernelMode(4);
     struct PCB *proc = &procTable[pid % MAXPROC];
     int runStatus = proc->runStatus;
-    // check if proc is not blocked or doesn't exist
+   
     if (proc->pid != pid) // the proc does not exist
         return -2;
     else if ((runStatus == 0) || (runStatus == 1) || (runStatus == 5)) // proc is not blocked
