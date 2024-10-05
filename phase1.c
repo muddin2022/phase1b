@@ -305,6 +305,8 @@ int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priorit
     newProc->arg = arg;
     newProc->zapQueue = NULL;
     newProc->nextZapQueue = NULL;
+    newProc->nextRunQueue = NULL;
+    newProc->prevRunQueue = NULL;
 
     addChild(currProc, newProc);
 
