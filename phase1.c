@@ -88,13 +88,15 @@ void quit(int status)
 
     if (currProc->parent->runStatus == 2)
         unblockProc(currProc->parent->pid);
+
     removeFromQueue();
 
-    dispatcher();
-    // TEMP_switchTo(currProc->parent->pid);
+    USLOSS_Console("fffee: %s %d\n", currProc->name, currProc->priority);
+    USLOSS_Console("ff22: %d %d\n", p2Head == NULL, p2Tail == NULL);
 
-    while (true)
-        ;
+    USLOSS_Console("\n");
+
+    dispatcher();
 }
 
 void zap(int pid)
@@ -166,8 +168,17 @@ void dispatcher(void)
         switchTo = p6Head;
     }
 
+    if (currProc != NULL)
+    {
+
+        USLOSS_Console("ff: %s %d %d\n", switchTo->name, switchTo->runStatus, switchTo->priority);
+        USLOSS_Console("FE: %s\n", currProc->name);
+    }
+
     if ((oldProc != NULL && oldProc->pid == switchTo->pid) || (currProc != NULL && currProc->runStatus != 5 && switchTo->priority >= oldProc->priority && currentTime() < switchTime + 80))
         return;
+
+    USLOSS_Console("eoijf\n");
 
     if (doRotate)
         rotateQueue();
@@ -234,6 +245,8 @@ int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priorit
     int pid = nextPid;
     int slot = pid % MAXPROC;
 
+    USLOSS_Console("foeij: %d %s \n", pid, name);
+
     if (procTable[slot].pid != 0 || strlen(name) > MAXNAME || priority < 1 || priority > 5)
         return -1;
     if (stacksize < USLOSS_MIN_STACK)
@@ -250,6 +263,8 @@ int spork(char *name, int (*func)(void *), void *arg, int stacksize, int priorit
     newProc->isDead = false;
     newProc->funcPtr = func;
     newProc->arg = arg;
+    newProc->nextRunQueue = NULL;
+    newProc->prevRunQueue = NULL;
 
     addChild(currProc, newProc);
 
